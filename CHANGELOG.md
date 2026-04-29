@@ -4,6 +4,22 @@ All changes are tracked with timestamp `YYMMDD-HHMMSS` format.
 
 ---
 
+## 260429-180455 — v1.2.0 Release
+
+### Added
+- **Test Settings** — Validate all settings (paths, permissions, mysqldump, cron, encryption) BEFORE saving. Shows green/yellow/red results.
+- **Revert to Saved** — One-click reset of settings form back to last saved values.
+- **Test Backup (Dry Run)** — Simulate a backup and see exactly what would be backed up: file count, size estimate, skipped files, without creating any archive.
+- **Auto Safety Backup on Restore** — Before every restore, a safety backup is created automatically.
+- **Undo Restore** — If restore breaks something, revert back to the pre-restore safety backup with one click.
+
+### Changed
+- Restore confirmation now warns that a safety backup will be created first
+- Admin UI buttons reorganized: Test Settings, Revert, Save on Settings tab
+- Backup tab now shows Dry Run button alongside Backup Now
+
+---
+
 ## 260429-162445 — v1.1.0 Published
 
 ### Released

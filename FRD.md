@@ -85,21 +85,64 @@
 | UI-03 | Responsive design | ✅ Done | WordPress admin CSS |
 | UI-04 | Dark mode support | 📝 Planned | WordPress admin dark mode |
 
+## 9. Zero-CLI Setup Features (New)
+
+| ID | Feature | Priority | Status | Notes |
+|----|---------|----------|--------|-------|
+| ZC-01 | **Setup Wizard** | 🔴 High | 📝 Planned | First-run guided setup: what to backup, where to store, schedule |
+| ZC-02 | **Built-in FTP/SFTP** | 🔴 High | 📝 Planned | Connect to NAS without OS mount — host, user, pass, port in UI |
+| ZC-03 | **WebDAV Support** | 🟡 Medium | 📝 Planned | Many NAS support WebDAV; pure PHP, no OS deps |
+| ZC-04 | **Health Check Dashboard** | 🔴 High | 📝 Planned | Pre-flight: disk space, permissions, mysqldump, ZipArchive, cron status |
+| ZC-05 | **Test Restore Sandbox** | 🟡 Medium | 📝 Planned | Verify backup integrity without touching live site |
+| ZC-06 | **Backup Download** | 🟡 Medium | 📝 Planned | Download ZIP directly from browser |
+| ZC-07 | **Email Notifications** | 🟡 Medium | 📝 Planned | Success/failure emails with summary |
+| ZC-08 | **Quick Setup Presets** | 🟢 Low | 📝 Planned | "Docker", "Shared Hosting", "VPS" presets with sensible defaults |
+| ZC-09 | **Disk Space Warning** | 🔴 High | 📝 Planned | Alert before backup if destination has < 2x estimated size free |
+| ZC-10 | **Backup Verification** | 🟡 Medium | 📝 Planned | Auto-verify ZIP integrity after creation |
+| ZC-11 | **Remote Storage Test** | 🔴 High | 📝 Planned | "Test Connection" button for FTP/SFTP/WebDAV |
+| ZC-12 | **One-Click Migration** | 🟢 Low | 📝 Planned | Export/import settings JSON between sites |
+| ZC-13 | **Auto-Detection** | 🟢 Low | 📝 Planned | Detect install type and suggest best paths |
+| ZC-14 | **Backup Search/Filter** | 🟢 Low | 📝 Planned | Search backups by date, type, size in UI |
+| ZC-15 | **Backup Preview** | 🟢 Low | 📝 Planned | Preview what's inside a ZIP before restore |
+
+---
+
+## Recommended Implementation Order (Zero-CLI Priority)
+
+### Phase 1: Health & Diagnostics (Biggest UX Win)
+1. **Health Check Dashboard** — Run on plugin page load, show green/yellow/red status for every requirement
+2. **Disk Space Warning** — Pre-backup check with clear alert
+3. **Backup Verification** — Auto-check ZIP after creation
+
+### Phase 2: Remote Storage Without Mount
+4. **Built-in FTP/SFTP** — Most NAS devices have FTP; no OS mount needed
+5. **WebDAV Support** — Pure PHP, works with Nextcloud, ownCloud, many NAS
+6. **Remote Storage Test** — "Test Connection" button before saving
+
+### Phase 3: Setup & Polish
+7. **Setup Wizard** — Trigger on first activation, guide through everything
+8. **Email Notifications** — WP Mail / SMTP integration
+9. **Backup Download** — Stream ZIP to browser
+10. **Quick Setup Presets** — One-click Docker/shared/VPS config
+
 ---
 
 ## Future Roadmap
 
 ### v1.2.0 (Planned)
-- Email notifications
-- Backup verification checksums
-- Settings export/import
+- Health Check Dashboard
+- Disk Space Warning
+- Backup Verification
+- Email Notifications
 
 ### v1.3.0 (Planned)
-- SFTP remote storage
-- Pre-restore dry run
-- Selective file restore
+- Built-in FTP/SFTP storage
+- WebDAV Support
+- Remote Storage Test
+- Backup Download
 
 ### v2.0.0 (Planned)
+- Setup Wizard
 - S3-compatible storage
 - Multisite network support
 - Multiple backup destinations

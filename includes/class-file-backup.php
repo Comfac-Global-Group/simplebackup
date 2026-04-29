@@ -86,4 +86,13 @@ class SimpleBackup_File_Backup {
         }
         return false;
     }
+
+    // Public helpers for dry-run testing
+    public function get_relative_path_for_test($path) {
+        return $this->get_relative_path($path);
+    }
+
+    public function is_excluded_for_test($relative_path) {
+        return $this->is_excluded($relative_path);
+    }
 }

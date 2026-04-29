@@ -18,6 +18,8 @@ class SimpleBackup_Admin {
         add_action('admin_enqueue_scripts', array($this, 'enqueue_assets'));
         add_action('admin_notices', array($this, 'show_notices'));
         add_action('wp_ajax_simplebackup_test_dir', array($this, 'ajax_test_dir'));
+        add_action('wp_ajax_simplebackup_test_settings', array($this, 'ajax_test_settings'));
+        add_action('wp_ajax_simplebackup_test_backup', array($this, 'ajax_test_backup'));
     }
 
     public function add_menu() {
@@ -85,6 +87,48 @@ class SimpleBackup_Admin {
         wp_send_json_success($result);
     }
 
+    public function ajax_test_settings() {
+        check_ajax_referer('simplebackup_ajax_nonce', 'nonce');
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Permission denied.');
+        }
+
+        $settings = isset($_POST['settings']) ? $_POST['settings'] : array();
+        $sanitized = $this->sanitize_settings_array($settings);
+        $result = SimpleBackup::instance()->test_settings($sanitized);
+        wp_send_json_success($result);
+    }
+
+    public function ajax_test_backup() {
+        check_ajax_referer('simplebackup_ajax_nonce', 'nonce');
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Permission denied.');
+        }
+
+        $type = isset($_POST['backup_type']) ? sanitize_text_field($_POST['backup_type']) : 'full';
+        $estimate = SimpleBackup::instance()->test_backup($type);
+        wp_send_json_success($estimate);
+    }
+
+    private function sanitize_settings_array($input) {
+        $sanitized = array();
+        $sanitized['backup_dir'] = sanitize_text_field($input['backup_dir'] ?? SIMPLEBACKUP_DEFAULT_DIR);
+        $sanitized['schedule_enabled'] = !empty($input['schedule_enabled']);
+        $sanitized['schedule_interval'] = in_array($input['schedule_interval'] ?? '', array('hourly','twicedaily','daily','weekly')) ? $input['schedule_interval'] : 'daily';
+        $sanitized['schedule_time'] = preg_match('/^([01]?\d|2[0-3]):([0-5]\d)$/', $input['schedule_time'] ?? '') ? $input['schedule_time'] : '02:00';
+        $sanitized['retention_count'] = max(1, min(365, intval($input['retention_count'] ?? 7)));
+        $sanitized['backup_themes'] = !empty($input['backup_themes']);
+        $sanitized['backup_plugins'] = !empty($input['backup_plugins']);
+        $sanitized['backup_uploads'] = !empty($input['backup_uploads']);
+        $sanitized['backup_core'] = !empty($input['backup_core']);
+        $sanitized['backup_database'] = !empty($input['backup_database']);
+        $sanitized['incremental_enabled'] = !empty($input['incremental_enabled']);
+        $sanitized['encryption_enabled'] = !empty($input['encryption_enabled']);
+        $sanitized['encryption_password'] = sanitize_text_field($input['encryption_password'] ?? '');
+        $sanitized['custom_dirs'] = array();
+        return $sanitized;
+    }
+
     public function get_system_info() {
         global $wpdb;
         $info = array(
@@ -131,9 +175,23 @@ class SimpleBackup_Admin {
                         </p>
                         <p>
                             <button type="submit" class="button button-primary"><?php _e('Backup Now', 'simplebackup'); ?></button>
+                            <button type="button" class="button" id="simplebackup-test-backup"><?php _e('Test Backup (Dry Run)', 'simplebackup'); ?></button>
                         </p>
                     </form>
+                    <div id="simplebackup-test-backup-results" style="display:none;"></div>
                 </div>
+
+                <?php if ($plugin->can_undo_restore()) : ?>
+                <div class="simplebackup-section" style="border-left:4px solid #d63638;">
+                    <h2><?php _e('Undo Last Restore', 'simplebackup'); ?></h2>
+                    <p><?php _e('A safety backup was created before your last restore. You can revert to that state.', 'simplebackup'); ?></p>
+                    <form method="post">
+                        <?php wp_nonce_field('simplebackup_nonce'); ?>
+                        <input type="hidden" name="simplebackup_action" value="undo_restore">
+                        <button type="submit" class="button" style="border-color:#d63638;color:#d63638;" onclick="return confirm('<?php _e('Revert to pre-restore state? This will overwrite current site.', 'simplebackup'); ?>');"><?php _e('Undo Last Restore', 'simplebackup'); ?></button>
+                    </form>
+                </div>
+                <?php endif; ?>
 
                 <div class="simplebackup-section">
                     <h2><?php _e('Existing Backups', 'simplebackup'); ?> (<?php echo count($backups); ?>)</h2>
@@ -187,7 +245,8 @@ class SimpleBackup_Admin {
 
             <?php elseif ($tab === 'settings') : ?>
                 <div class="simplebackup-section">
-                    <form method="post" action="options.php">
+                    <h2><?php _e('Settings', 'simplebackup'); ?></h2>
+                    <form method="post" action="options.php" id="simplebackup-settings-form">
                         <?php
                         settings_fields('simplebackup_settings_group');
                         do_settings_sections('simplebackup_settings_group');
@@ -235,7 +294,6 @@ class SimpleBackup_Admin {
                             <tr>
                                 <th scope="row"><?php _e('What to Backup', 'simplebackup'); ?></th>
                                 <td>
-                                    <label><input type="checkbox" name="simplebackup_settings[backup_database]" value="1" <?php checked($settings['backup_database']); ?>> <?php _e('Database', 'simplebackup'); ?></label><br>
                                     <label><input type="checkbox" name="simplebackup_settings[backup_themes]" value="1" <?php checked($settings['backup_themes']); ?>> <?php _e('Themes', 'simplebackup'); ?></label><br>
                                     <label><input type="checkbox" name="simplebackup_settings[backup_plugins]" value="1" <?php checked($settings['backup_plugins']); ?>> <?php _e('Plugins', 'simplebackup'); ?></label><br>
                                     <label><input type="checkbox" name="simplebackup_settings[backup_uploads]" value="1" <?php checked($settings['backup_uploads']); ?>> <?php _e('Uploads', 'simplebackup'); ?></label><br>
@@ -262,7 +320,12 @@ class SimpleBackup_Admin {
                                 </td>
                             </tr>
                         </table>
-                        <?php submit_button(); ?>
+                        <p>
+                            <button type="button" class="button" id="simplebackup-test-settings"><?php _e('Test Settings', 'simplebackup'); ?></button>
+                            <button type="button" class="button" id="simplebackup-revert-settings"><?php _e('Revert to Saved', 'simplebackup'); ?></button>
+                        </p>
+                        <div id="simplebackup-settings-test-results" style="margin:10px 0;"></div>
+                        <?php submit_button(__('Save Settings', 'simplebackup')); ?>
                     </form>
                 </div>
 

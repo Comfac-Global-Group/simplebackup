@@ -53,3 +53,17 @@
 .simplebackup-wrap .form-table input[type="number"] {
     width: 300px;
 }
+
+#simplebackup-test-backup-results,
+#simplebackup-settings-test-results {
+    max-width: 600px;
+}
+
+#simplebackup-test-backup-results h4,
+#simplebackup-settings-test-results h4 {
+    margin-top: 0;
+}
+
+#simplebackup-revert-settings {
+    margin-left: 8px;
+}
