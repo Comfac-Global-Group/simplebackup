@@ -20,6 +20,20 @@ All changes are tracked with timestamp `YYMMDD-HHMMSS` format.
 
 ---
 
+## 260429-181214 — v1.3.0 Release
+
+### Added
+- **Health Check Dashboard** — Auto-runs on Backups tab. Shows green/yellow/red status for: backup directory, ZIP extension, mysqldump, cron schedule, PHP memory, max execution time, recent backups, encryption. Instant visual diagnosis.
+- **Pre-backup Disk Space Warning** — Before every backup, estimates size and checks if destination has 2x free space. Fails fast with clear message if disk is full.
+- **Backup Verification** — After every backup, automatically verifies ZIP integrity: checks manifest.json exists, is valid JSON, database file present, file count matches manifest.
+
+### Changed
+- Backup tab now shows Health Check dashboard at the top
+- Failed backups now report specific verification errors
+- Disk space check prevents wasted time on full destinations
+
+---
+
 ## 260429-162445 — v1.1.0 Published
 
 ### Released

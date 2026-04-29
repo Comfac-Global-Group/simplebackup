@@ -2,7 +2,7 @@
 /**
  * Plugin Name: SimpleBackup
  * Description: Free WordPress backup plugin with incremental backups, scheduling, and NAS/local storage support. No premium upsells.
- * Version: 1.2.0
+ * Version: 1.3.0
  * Author: SimpleBackup
  * License: GPLv3
  * License URI: https://www.gnu.org/licenses/gpl-3.0.html
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('SIMPLEBACKUP_VERSION', '1.2.0');
+define('SIMPLEBACKUP_VERSION', '1.3.0');
 define('SIMPLEBACKUP_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('SIMPLEBACKUP_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('SIMPLEBACKUP_DEFAULT_DIR', WP_CONTENT_DIR . '/simplebackup-backups');
@@ -26,6 +26,7 @@ require_once SIMPLEBACKUP_PLUGIN_DIR . 'includes/class-incremental.php';
 require_once SIMPLEBACKUP_PLUGIN_DIR . 'includes/class-scheduler.php';
 require_once SIMPLEBACKUP_PLUGIN_DIR . 'includes/class-restorer.php';
 require_once SIMPLEBACKUP_PLUGIN_DIR . 'includes/class-encryption.php';
+require_once SIMPLEBACKUP_PLUGIN_DIR . 'includes/class-health-check.php';
 require_once SIMPLEBACKUP_PLUGIN_DIR . 'includes/class-admin.php';
 
 function simplebackup_init() {

@@ -145,6 +145,14 @@ class SimpleBackup {
         $dir = $this->get_backup_dir();
         $this->protect_dir($dir);
 
+        // Pre-backup disk space check
+        $estimate = $this->test_backup($type);
+        $total_estimated = $estimate['db_size'] + $estimate['file_size'];
+        $disk_check = SimpleBackup_Health_Check::instance()->check_disk_space($total_estimated);
+        if (!$disk_check['ok']) {
+            return new WP_Error('disk_space', $disk_check['message']);
+        }
+
         $timestamp = current_time('timestamp');
         $backup_id = 'simplebackup-' . gmdate('Y-m-d-His', $timestamp);
         $zip_path = $dir . '/' . $backup_id . '.zip';
@@ -232,6 +240,15 @@ class SimpleBackup {
             @unlink($sql_file);
         }
 
+        // Verify ZIP integrity
+        $verify = $this->verify_backup_zip($zip_path);
+        if (is_wp_error($verify)) {
+            $log[] = "WARNING: ZIP verification failed: " . $verify->get_error_message();
+            file_put_contents($dir . '/' . $backup_id . '.log', implode("\n", $log));
+            return new WP_Error('verify_failed', 'Backup created but ZIP verification failed: ' . $verify->get_error_message());
+        }
+        $log[] = "ZIP verification passed.";
+
         // Write log
         file_put_contents($dir . '/' . $backup_id . '.log', implode("\n", $log));
 
@@ -264,6 +281,58 @@ class SimpleBackup {
 
     public function get_backups() {
         return SimpleBackup_Storage_Local::instance()->list_backups();
+    }
+
+    /**
+     * Verify a backup ZIP file is valid and contains required files.
+     */
+    public function verify_backup_zip($zip_path) {
+        if (!file_exists($zip_path)) {
+            return new WP_Error('verify_not_found', 'ZIP file not found.');
+        }
+
+        $zip = new ZipArchive();
+        $res = $zip->open($zip_path);
+        if ($res !== true) {
+            return new WP_Error('verify_open', 'Cannot open ZIP file. Error code: ' . $res);
+        }
+
+        // Check manifest exists
+        if ($zip->locateName('manifest.json') === false) {
+            $zip->close();
+            return new WP_Error('verify_manifest', 'manifest.json missing from ZIP.');
+        }
+
+        // Check manifest is valid JSON
+        $manifest_json = $zip->getFromName('manifest.json');
+        $manifest = json_decode($manifest_json, true);
+        if (!is_array($manifest) || empty($manifest['id'])) {
+            $zip->close();
+            return new WP_Error('verify_manifest_json', 'manifest.json is corrupt or invalid.');
+        }
+
+        // Check db backup exists if database was included
+        if (!empty($manifest['database']) && $zip->locateName('db/backup.sql') === false) {
+            $zip->close();
+            return new WP_Error('verify_db', 'Database backup missing from ZIP.');
+        }
+
+        // Check file count matches manifest
+        $file_count = 0;
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $name = $zip->getNameIndex($i);
+            if (strpos($name, 'files/') === 0 && substr($name, -1) !== '/') {
+                $file_count++;
+            }
+        }
+
+        if ($file_count !== count($manifest['files'] ?? array())) {
+            $zip->close();
+            return new WP_Error('verify_count', "File count mismatch. Manifest: " . count($manifest['files'] ?? array()) . ", ZIP: {$file_count}.");
+        }
+
+        $zip->close();
+        return true;
     }
 
     /**

@@ -164,6 +164,30 @@ class SimpleBackup_Admin {
             </nav>
 
             <?php if ($tab === 'backups') : ?>
+                <?php $health = SimpleBackup_Health_Check::instance()->run_checks(); ?>
+                <div class="simplebackup-section" style="border-left:4px solid <?php echo $health['overall'] === 'success' ? '#00a32a' : ($health['overall'] === 'warning' ? '#dba617' : '#d63638'); ?>;">
+                    <h2><?php _e('Health Check', 'simplebackup'); ?> 
+                        <span style="font-size:0.7em;font-weight:normal;text-transform:uppercase;" class="simplebackup-status-<?php echo esc_attr($health['overall']); ?>">
+                            <?php echo esc_html($health['overall']); ?>
+                        </span>
+                    </h2>
+                    <table class="widefat striped" style="margin-top:10px;">
+                        <tbody>
+                            <?php foreach ($health['checks'] as $check) : ?>
+                                <tr>
+                                    <th style="width:250px;"><?php echo esc_html($check['title']); ?></th>
+                                    <td>
+                                        <span class="simplebackup-status-badge simplebackup-status-<?php echo esc_attr($check['status']); ?>">
+                                            <?php echo esc_html($check['status']); ?>
+                                        </span>
+                                        <?php echo esc_html($check['message']); ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+
                 <div class="simplebackup-section">
                     <h2><?php _e('Manual Backup', 'simplebackup'); ?></h2>
                     <form method="post">

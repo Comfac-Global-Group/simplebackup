@@ -67,3 +67,32 @@
 #simplebackup-revert-settings {
     margin-left: 8px;
 }
+
+/* Health Check Status Badges */
+.simplebackup-status-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 0.75em;
+    font-weight: bold;
+    text-transform: uppercase;
+    margin-right: 8px;
+    color: #fff;
+}
+
+.simplebackup-status-success {
+    background: #00a32a;
+}
+
+.simplebackup-status-info {
+    background: #2271b1;
+}
+
+.simplebackup-status-warning {
+    background: #dba617;
+    color: #000;
+}
+
+.simplebackup-status-error {
+    background: #d63638;
+}
