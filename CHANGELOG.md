@@ -4,6 +4,15 @@ All changes are tracked with timestamp `YYMMDD-HHMMSS` format.
 
 ---
 
+## 260429-162445 — v1.1.0 Published
+
+### Released
+- GitHub release created: https://github.com/Comfac-Global-Group/simplebackup/releases/tag/v1.1.0
+- Download: `simplebackup-v1.1.0.zip` (26 KB)
+- Activation: WordPress Dashboard > Plugins > Add New > Upload > Activate > Tools > SimpleBackup
+
+---
+
 ## 260429-160400 — v1.1.0 Release
 
 ### Added
