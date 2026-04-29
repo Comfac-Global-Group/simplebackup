@@ -1,0 +1,55 @@
+.simplebackup-wrap {
+    max-width: 1200px;
+}
+
+.simplebackup-wrap .version {
+    font-size: 0.5em;
+    font-weight: normal;
+    color: #888;
+}
+
+.simplebackup-section {
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    padding: 20px;
+    margin: 20px 0;
+    border-radius: 4px;
+}
+
+.simplebackup-section h2 {
+    margin-top: 0;
+    font-size: 1.3em;
+}
+
+.simplebackup-log {
+    background: #f6f7f7;
+    border: 1px solid #c3c4c7;
+    padding: 10px;
+    margin: 10px 0;
+    border-radius: 4px;
+}
+
+.simplebackup-log h4 {
+    margin: 0 0 10px 0;
+    font-size: 0.9em;
+    color: #555;
+}
+
+.simplebackup-log pre {
+    margin: 0;
+    font-size: 0.85em;
+    max-height: 200px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.simplebackup-wrap .form-table td {
+    vertical-align: top;
+}
+
+.simplebackup-wrap .form-table input[type="text"],
+.simplebackup-wrap .form-table input[type="password"],
+.simplebackup-wrap .form-table input[type="number"] {
+    width: 300px;
+}
