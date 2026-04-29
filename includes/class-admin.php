@@ -17,6 +17,7 @@ class SimpleBackup_Admin {
         add_action('admin_menu', array($this, 'add_menu'));
         add_action('admin_enqueue_scripts', array($this, 'enqueue_assets'));
         add_action('admin_notices', array($this, 'show_notices'));
+        add_action('wp_ajax_simplebackup_test_dir', array($this, 'ajax_test_dir'));
     }
 
     public function add_menu() {
@@ -33,10 +34,73 @@ class SimpleBackup_Admin {
         if ($hook !== 'tools_page_simplebackup') return;
         wp_enqueue_style('simplebackup-admin', SIMPLEBACKUP_PLUGIN_URL . 'assets/css/admin.css', array(), SIMPLEBACKUP_VERSION);
         wp_enqueue_script('simplebackup-admin', SIMPLEBACKUP_PLUGIN_URL . 'assets/js/admin.js', array('jquery'), SIMPLEBACKUP_VERSION, true);
+        wp_localize_script('simplebackup-admin', 'simplebackup_ajax', array(
+            'ajax_url' => admin_url('admin-ajax.php'),
+            'nonce'    => wp_create_nonce('simplebackup_ajax_nonce'),
+        ));
     }
 
     public function show_notices() {
         settings_errors('simplebackup');
+    }
+
+    public function ajax_test_dir() {
+        check_ajax_referer('simplebackup_ajax_nonce', 'nonce');
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Permission denied.');
+        }
+
+        $dir = isset($_POST['dir']) ? sanitize_text_field($_POST['dir']) : '';
+        if (empty($dir)) {
+            wp_send_json_error('No directory specified.');
+        }
+
+        $result = array(
+            'exists'      => file_exists($dir),
+            'is_dir'      => is_dir($dir),
+            'readable'    => is_readable($dir),
+            'writable'    => is_writable($dir),
+            'perms'       => file_exists($dir) ? substr(sprintf('%o', fileperms($dir)), -4) : '----',
+            'realpath'    => file_exists($dir) ? realpath($dir) : 'N/A',
+            'free_space'  => function_exists('disk_free_space') && file_exists($dir) ? size_format(disk_free_space($dir)) : 'Unknown',
+            'contents'    => array(),
+        );
+
+        if (is_dir($dir) && is_readable($dir)) {
+            $items = scandir($dir);
+            foreach (array_slice($items, 0, 30) as $item) {
+                if ($item === '.' || $item === '..') continue;
+                $full = rtrim($dir, '/') . '/' . $item;
+                $result['contents'][] = array(
+                    'name'  => $item,
+                    'type'  => is_dir($full) ? 'dir' : 'file',
+                    'size'  => is_file($full) ? size_format(filesize($full)) : '',
+                );
+            }
+            if (count($items) > 30) {
+                $result['contents'][] = array('name' => '... (' . (count($items) - 2) . ' total items)', 'type' => 'info', 'size' => '');
+            }
+        }
+
+        wp_send_json_success($result);
+    }
+
+    public function get_system_info() {
+        global $wpdb;
+        $info = array(
+            'WordPress Version' => get_bloginfo('version'),
+            'PHP Version'       => phpversion(),
+            'MySQL Version'     => $wpdb->db_version(),
+            'Server OS'         => php_uname('s') . ' ' . php_uname('r'),
+            'Document Root'     => $_SERVER['DOCUMENT_ROOT'] ?? 'N/A',
+            'ABSPATH'           => ABSPATH,
+            'WP_CONTENT_DIR'    => WP_CONTENT_DIR,
+            'Current User'      => function_exists('posix_getpwuid') ? posix_getpwuid(posix_geteuid())['name'] : get_current_user(),
+            'Server Time'       => current_time('mysql'),
+            'ZipArchive'        => class_exists('ZipArchive') ? 'Available' : 'Missing',
+            'mysqldump'         => shell_exec('which mysqldump 2>/dev/null') ? 'Available (' . trim(shell_exec('which mysqldump 2>/dev/null')) . ')' : 'Not found',
+        );
+        return $info;
     }
 
     public function render_page() {
@@ -51,6 +115,7 @@ class SimpleBackup_Admin {
             <nav class="nav-tab-wrapper">
                 <a href="?page=simplebackup&tab=backups" class="nav-tab <?php echo $tab === 'backups' ? 'nav-tab-active' : ''; ?>"><?php _e('Backups', 'simplebackup'); ?></a>
                 <a href="?page=simplebackup&tab=settings" class="nav-tab <?php echo $tab === 'settings' ? 'nav-tab-active' : ''; ?>"><?php _e('Settings', 'simplebackup'); ?></a>
+                <a href="?page=simplebackup&tab=system" class="nav-tab <?php echo $tab === 'system' ? 'nav-tab-active' : ''; ?>"><?php _e('System Info', 'simplebackup'); ?></a>
                 <a href="?page=simplebackup&tab=logs" class="nav-tab <?php echo $tab === 'logs' ? 'nav-tab-active' : ''; ?>"><?php _e('Logs', 'simplebackup'); ?></a>
             </nav>
 
@@ -132,7 +197,9 @@ class SimpleBackup_Admin {
                                 <th scope="row"><label for="backup_dir"><?php _e('Backup Directory', 'simplebackup'); ?></label></th>
                                 <td>
                                     <input type="text" name="simplebackup_settings[backup_dir]" id="backup_dir" value="<?php echo esc_attr($settings['backup_dir']); ?>" class="regular-text">
+                                    <button type="button" class="button" id="simplebackup-test-dir"><?php _e('Test Directory', 'simplebackup'); ?></button>
                                     <p class="description"><?php _e('Absolute path for backups. Mount your NAS here via SMB/NFS.', 'simplebackup'); ?></p>
+                                    <div id="simplebackup-dir-results" style="margin-top:10px;"></div>
                                 </td>
                             </tr>
                             <tr>
@@ -141,13 +208,21 @@ class SimpleBackup_Admin {
                                     <label>
                                         <input type="checkbox" name="simplebackup_settings[schedule_enabled]" value="1" <?php checked($settings['schedule_enabled']); ?>>
                                         <?php _e('Enable scheduled backups', 'simplebackup'); ?>
-                                    </label><br>
-                                    <select name="simplebackup_settings[schedule_interval]">
-                                        <option value="hourly" <?php selected($settings['schedule_interval'], 'hourly'); ?>><?php _e('Hourly', 'simplebackup'); ?></option>
-                                        <option value="twicedaily" <?php selected($settings['schedule_interval'], 'twicedaily'); ?>><?php _e('Twice Daily', 'simplebackup'); ?></option>
-                                        <option value="daily" <?php selected($settings['schedule_interval'], 'daily'); ?>><?php _e('Daily', 'simplebackup'); ?></option>
-                                        <option value="weekly" <?php selected($settings['schedule_interval'], 'weekly'); ?>><?php _e('Weekly', 'simplebackup'); ?></option>
-                                    </select>
+                                    </label><br><br>
+                                    <label>
+                                        <?php _e('Interval:', 'simplebackup'); ?>
+                                        <select name="simplebackup_settings[schedule_interval]">
+                                            <option value="hourly" <?php selected($settings['schedule_interval'], 'hourly'); ?>><?php _e('Hourly', 'simplebackup'); ?></option>
+                                            <option value="twicedaily" <?php selected($settings['schedule_interval'], 'twicedaily'); ?>><?php _e('Twice Daily', 'simplebackup'); ?></option>
+                                            <option value="daily" <?php selected($settings['schedule_interval'], 'daily'); ?>><?php _e('Daily', 'simplebackup'); ?></option>
+                                            <option value="weekly" <?php selected($settings['schedule_interval'], 'weekly'); ?>><?php _e('Weekly', 'simplebackup'); ?></option>
+                                        </select>
+                                    </label>
+                                    <label style="margin-left:15px;">
+                                        <?php _e('At time:', 'simplebackup'); ?>
+                                        <input type="time" name="simplebackup_settings[schedule_time]" value="<?php echo esc_attr($settings['schedule_time']); ?>">
+                                    </label>
+                                    <p class="description"><?php _e('Backups will run at the specified time. Server time is used.', 'simplebackup'); ?></p>
                                 </td>
                             </tr>
                             <tr>
@@ -191,6 +266,65 @@ class SimpleBackup_Admin {
                     </form>
                 </div>
 
+            <?php elseif ($tab === 'system') : ?>
+                <div class="simplebackup-section">
+                    <h2><?php _e('System Information', 'simplebackup'); ?></h2>
+                    <p class="description"><?php _e('Useful for Docker and server troubleshooting.', 'simplebackup'); ?></p>
+                    <table class="widefat striped">
+                        <tbody>
+                            <?php foreach ($this->get_system_info() as $key => $value) : ?>
+                                <tr>
+                                    <th style="width:200px;"><?php echo esc_html($key); ?></th>
+                                    <td><code><?php echo esc_html($value); ?></code></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="simplebackup-section">
+                    <h2><?php _e('Common Docker Paths', 'simplebackup'); ?></h2>
+                    <table class="widefat striped">
+                        <thead>
+                            <tr>
+                                <th><?php _e('Path', 'simplebackup'); ?></th>
+                                <th><?php _e('Status', 'simplebackup'); ?></th>
+                                <th><?php _e('Notes', 'simplebackup'); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php
+                            $docker_paths = array(
+                                '/var/www/html/wp-content/' => 'Standard Docker WordPress content dir',
+                                '/var/www/html/'            => 'Standard Docker WordPress root',
+                                '/mnt/'                     => 'Common mount point for NAS volumes',
+                                '/backup/'                  => 'Alternative Docker volume mount',
+                                '/data/'                    => 'Alternative Docker volume mount',
+                                WP_CONTENT_DIR . '/'        => 'Current WP_CONTENT_DIR',
+                                ABSPATH                     => 'Current ABSPATH',
+                            );
+                            foreach ($docker_paths as $path => $note) :
+                                $exists = file_exists($path);
+                                $writable = $exists && is_writable($path);
+                            ?>
+                                <tr>
+                                    <td><code><?php echo esc_html($path); ?></code></td>
+                                    <td>
+                                        <?php if (!$exists) : ?>
+                                            <span style="color:#999;">Not found</span>
+                                        <?php elseif ($writable) : ?>
+                                            <span style="color:green;">✓ Writable</span>
+                                        <?php else : ?>
+                                            <span style="color:orange;">Exists, not writable</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td><?php echo esc_html($note); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+
             <?php elseif ($tab === 'logs') : ?>
                 <div class="simplebackup-section">
                     <h2><?php _e('Backup Logs', 'simplebackup'); ?></h2>
@@ -221,6 +355,7 @@ add_action('admin_init', function() {
         $sanitized['backup_dir'] = sanitize_text_field($input['backup_dir'] ?? SIMPLEBACKUP_DEFAULT_DIR);
         $sanitized['schedule_enabled'] = !empty($input['schedule_enabled']);
         $sanitized['schedule_interval'] = in_array($input['schedule_interval'] ?? '', array('hourly','twicedaily','daily','weekly')) ? $input['schedule_interval'] : 'daily';
+        $sanitized['schedule_time'] = preg_match('/^([01]?\d|2[0-3]):([0-5]\d)$/', $input['schedule_time'] ?? '') ? $input['schedule_time'] : '02:00';
         $sanitized['retention_count'] = max(1, min(365, intval($input['retention_count'] ?? 7)));
         $sanitized['backup_themes'] = !empty($input['backup_themes']);
         $sanitized['backup_plugins'] = !empty($input['backup_plugins']);
@@ -235,7 +370,7 @@ add_action('admin_init', function() {
         // Reschedule cron if changed
         SimpleBackup_Scheduler::instance()->clear_schedules();
         if ($sanitized['schedule_enabled']) {
-            SimpleBackup_Scheduler::instance()->schedule_events($sanitized['schedule_interval']);
+            SimpleBackup_Scheduler::instance()->schedule_events($sanitized['schedule_interval'], $sanitized['schedule_time']);
         }
 
         return $sanitized;

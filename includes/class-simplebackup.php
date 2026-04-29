@@ -41,6 +41,7 @@ class SimpleBackup {
             'backup_dir'           => SIMPLEBACKUP_DEFAULT_DIR,
             'schedule_enabled'     => false,
             'schedule_interval'    => 'daily',
+            'schedule_time'        => '02:00',
             'retention_count'      => 7,
             'backup_themes'        => true,
             'backup_plugins'       => true,
